@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "848b77f09f49b953aafa5f1d031b00aa3d8d80e1"
+project_hash = "f8a984e052976629975e91fe4ff8fbe9ee21c69d"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -65,23 +65,6 @@ weakdeps = ["StaticArrays"]
 git-tree-sha1 = "7e651ea8d262d2d74ce75fdf47c4d63c07dba7a6"
 uuid = "35492f91-a3bd-45ad-95db-fcad7dcfedb7"
 version = "1.2.0"
-
-[[deps.AdvancedMH]]
-deps = ["AbstractMCMC", "Distributions", "DocStringExtensions", "FillArrays", "LinearAlgebra", "LogDensityProblems", "Random", "Requires"]
-git-tree-sha1 = "6e3d18037861bf220ed77f1a2c5f24a21a68d4b7"
-uuid = "5b7e9947-ddc0-4b3f-9b55-0d8042f74170"
-version = "0.8.5"
-
-    [deps.AdvancedMH.extensions]
-    AdvancedMHForwardDiffExt = ["DiffResults", "ForwardDiff"]
-    AdvancedMHMCMCChainsExt = "MCMCChains"
-    AdvancedMHStructArraysExt = "StructArrays"
-
-    [deps.AdvancedMH.weakdeps]
-    DiffResults = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
-    ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
-    MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
-    StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 
 [[deps.AlgebraOfGraphics]]
 deps = ["Accessors", "Colors", "Dates", "Dictionaries", "FileIO", "GLM", "GeoInterface", "GeometryBasics", "GridLayoutBase", "Isoband", "KernelDensity", "Loess", "Makie", "NaturalSort", "PlotUtils", "PolygonOps", "PooledArrays", "PrecompileTools", "RelocatableFolders", "StatsBase", "StructArrays", "Tables"]

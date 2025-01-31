@@ -5,8 +5,10 @@ include { combine_csvs; } from './nf-nest/combine.nf'
 def julia_env = file('julia_env')
 def julia_script = file('code.jl')
 
+
 def variables = [
     bandwidth: (-15..15).collect{ i -> Math.pow(2.0, i)}, 
+    n_samples: [100_000]
 ]
 
 workflow  {
@@ -33,7 +35,7 @@ process run_julia {
     include("$julia_script")
     using CSV 
 
-    df = main(${config.bandwidth}, 10, 100_000)
+    df = main(${config.bandwidth}, 10, ${config.n_samples})
     mkdir("${filed(config)}")
     CSV.write("${filed(config)}/ess.csv", df)
     """
@@ -60,12 +62,14 @@ process plot {
     using CairoMakie
 
     df = CSV.read("$combined_csvs_folder/ess.csv", DataFrame)
-    transform!(df, :moment => ByRow(string) => :moment)
+    transform!(df, :moment => ByRow(x -> "moment = " * string(x)) => :moment)
+    n_samples = df[1, :n_samples]
 
-    plt = data(df) * mapping(:bandwidth, :value, color = :type, row = :moment) * visual(Scatter, alpha=0.25) 
-    fg = draw(plt; 
+    plt = data(df) * mapping(:bandwidth, :value, col = :type, color = :type, row = :moment) * visual(Scatter, alpha=0.25) 
+    plt_hlines = mapping([n_samples]) * visual(HLines)
+    fg = draw(plt + plt_hlines; 
             axis = (; xscale = log2, yscale = log2),
-            figure = (; size = (500, 500))
+            figure = (; size = (1000, 500))
         )
     save("ess.png", fg, px_per_unit = 3)
     """

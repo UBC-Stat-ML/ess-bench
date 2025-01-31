@@ -1,20 +1,24 @@
-using AdvancedMH
 using Distributions
 using MCMCChains
 using DataFrames 
 
-struct TuringESS end 
+struct TuringESS{K}
+    args::K 
+end 
+descr(t::TuringESS) = "TuringESS$(t.args)"
 
-struct InformedESS{T}
+struct BatchMeanESS{T}
     target::T
 end
+descr(::BatchMeanESS{Nothing}) = "BatchMeanESS"
+descr(::BatchMeanESS) = "BatchMeanESS(informed)"
 
-# function run_mh(proposal_sd, target, n_iterations) 
-#     target_logd(x) = logpdf(target, x)
-#     model = DensityModel(target_logd)
-#     sampler = RWMH(Normal(0, proposal_sd))
-#     return sample(model, sampler, n_iterations, chain_type=Chains; progress=false)
-# end
+ess_estimators(ref) = [
+    BatchMeanESS(ref), 
+    BatchMeanESS(nothing),
+    TuringESS((; kind = :bulk)),
+    TuringESS((; kind = :basic)),
+]
 
 function run_mh(proposal_sd, target, n_iterations) 
     target_logd(x) = logpdf(target, x)
@@ -31,12 +35,17 @@ function run_mh(proposal_sd, target, n_iterations)
     return result
 end
 
-compute_ess(samples, ::TuringESS) = ess(samples)
+compute_ess(samples, t::TuringESS) = ess(samples; t.args...)
 
-function compute_ess(samples, informed::InformedESS)
+function compute_ess(samples, informed::BatchMeanESS)
     target = informed.target
-    posterior_mean = mean(target)
-    posterior_sd = std(target)
+    if target === nothing
+        posterior_mean = mean(samples) 
+        posterior_sd = std(samples)
+    else
+        posterior_mean = mean(target)
+        posterior_sd = std(target)
+    end
     n_samples = length(samples)
     n_blocks = 1 + isqrt(n_samples)
     blk_size = n_samples ÷ n_blocks # takes floor of division
@@ -50,20 +59,16 @@ end
 
 function main(proposal_sd, n_repeats, n_iterations)
     
-    df = DataFrame(seed = Int[], type = Symbol[], moment = Int[], value = Float64[])
+    df = DataFrame(seed = Int[], type = String[], moment = Int[], value = Float64[])
     for seed in 1:n_repeats
         samples = run_mh(proposal_sd, Normal(0, 1) , n_iterations)
         for moment in [1, 2]
             ref = moment == 1 ? Normal(0, 1) : Chisq(1)
-
-            # @show mean(samples.^moment), mean(ref) 
-            # @show std(samples.^moment), std(ref)
-
-            for ess_type in [TuringESS(), InformedESS(ref)]
+            for ess_type in ess_estimators(ref)
                 push!(df, (;
                     seed, 
                     moment,
-                    type = Symbol(Base.typename(typeof(ess_type)).name), 
+                    type = descr(ess_type), 
                     value = compute_ess(samples .^ moment, ess_type)
                 ))
             end
@@ -73,8 +78,4 @@ function main(proposal_sd, n_repeats, n_iterations)
     return df
 end
 
-#main(1.0, 1, 100000)
-
-# x = run_mh(0.2, Normal(0, 1) , 100000)
-
-# @show mean(x), std(x)
+main(1.0, 1, 100000)
