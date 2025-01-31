@@ -6,7 +6,7 @@ def julia_env = file('julia_env')
 def julia_script = file('code.jl')
 
 def variables = [
-    bandwidth: (-10..10).collect{ i -> Math.pow(2.0, i)}, 
+    bandwidth: (-15..15).collect{ i -> Math.pow(2.0, i)}, 
 ]
 
 workflow  {
@@ -33,7 +33,7 @@ process run_julia {
     include("$julia_script")
     using CSV 
 
-    df = main(${config.bandwidth}, 10, 1_000)
+    df = main(${config.bandwidth}, 10, 100_000)
     mkdir("${filed(config)}")
     CSV.write("${filed(config)}/ess.csv", df)
     """

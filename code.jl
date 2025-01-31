@@ -9,18 +9,32 @@ struct InformedESS{T}
     target::T
 end
 
+# function run_mh(proposal_sd, target, n_iterations) 
+#     target_logd(x) = logpdf(target, x)
+#     model = DensityModel(target_logd)
+#     sampler = RWMH(Normal(0, proposal_sd))
+#     return sample(model, sampler, n_iterations, chain_type=Chains; progress=false)
+# end
+
 function run_mh(proposal_sd, target, n_iterations) 
     target_logd(x) = logpdf(target, x)
-    model = DensityModel(target_logd)
-    sampler = RWMH(Normal(0, proposal_sd))
-    return sample(model, sampler, n_iterations, chain_type=Chains; progress=false)
+    result = zeros(n_iterations) 
+    current_point = randn()
+    for i in 1:n_iterations 
+        proposed_point = current_point + proposal_sd * randn() 
+        log_ratio = target_logd(proposed_point) - target_logd(current_point) 
+        if rand() < exp(log_ratio) 
+            current_point = proposed_point 
+        end 
+        result[i] = current_point 
+    end
+    return result
 end
 
 compute_ess(samples, ::TuringESS) = ess(samples)
 
 function compute_ess(samples, informed::InformedESS)
     target = informed.target
-    
     posterior_mean = mean(target)
     posterior_sd = std(target)
     n_samples = length(samples)
@@ -38,10 +52,13 @@ function main(proposal_sd, n_repeats, n_iterations)
     
     df = DataFrame(seed = Int[], type = Symbol[], moment = Int[], value = Float64[])
     for seed in 1:n_repeats
-        c = run_mh(proposal_sd, Normal(0, 1) , n_iterations)
-        samples = c[:param_1]
+        samples = run_mh(proposal_sd, Normal(0, 1) , n_iterations)
         for moment in [1, 2]
-            ref = moment == 1 ? Normal(0, 1) : Chi(1)
+            ref = moment == 1 ? Normal(0, 1) : Chisq(1)
+
+            # @show mean(samples.^moment), mean(ref) 
+            # @show std(samples.^moment), std(ref)
+
             for ess_type in [TuringESS(), InformedESS(ref)]
                 push!(df, (;
                     seed, 
@@ -56,4 +73,8 @@ function main(proposal_sd, n_repeats, n_iterations)
     return df
 end
 
-main(1.0, 1, 100)
+#main(1.0, 1, 100000)
+
+# x = run_mh(0.2, Normal(0, 1) , 100000)
+
+# @show mean(x), std(x)
