@@ -10,3 +10,5 @@
 .nextflow.log.9
 .nextflow
 work
+report_files
+report.html

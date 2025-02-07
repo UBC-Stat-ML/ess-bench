@@ -7,7 +7,7 @@ def julia_script = file('code.jl')
 
 
 def variables = [
-    bandwidth: (-15..15).collect{ i -> Math.pow(2.0, i)}, 
+    bandwidth: (-20..20).collect{ i -> Math.pow(2.0, i)}, 
     n_samples: [100_000]
 ]
 
@@ -62,14 +62,13 @@ process plot {
     using CairoMakie
 
     df = CSV.read("$combined_csvs_folder/ess.csv", DataFrame)
-    transform!(df, :moment => ByRow(x -> "moment = " * string(x)) => :moment)
     n_samples = df[1, :n_samples]
 
-    plt = data(df) * mapping(:bandwidth, :value, col = :type, color = :type, row = :moment) * visual(Scatter, alpha=0.25) 
+    plt = data(df) * mapping(:bandwidth, :value, col = :type, color = :type, row = :initialization) * visual(Scatter, alpha=0.25) 
     plt_hlines = mapping([n_samples]) * visual(HLines)
     fg = draw(plt + plt_hlines; 
             axis = (; xscale = log2, yscale = log2),
-            figure = (; size = (1000, 500))
+            figure = (; size = (1000, 1000))
         )
     save("ess.png", fg, px_per_unit = 3)
     """

@@ -1,0 +1,130 @@
+
+<!-- First, some macros specific to this document -->
+
+\newcommand\parm{{(m)}}
+\newcommand\expl[1]{\;\;\text{(#1)}}
+\newcommand{\red}[1]{{\color{red} #1}}
+\newcommand{\sd}{\operatorname{SD}}
+\newcommand{\mse}{\operatorname{MSE}}
+\newcommand{\rmse}{\operatorname{RMSE}}
+\newcommand{\bias}{\operatorname{Bias}}
+
+\newcommand{\ESS}{\operatorname{ESS}}
+
+<!-- -->
+
+<!-- 
+Second, tiny-shortex for Quarto
+restricted to macros supported by MathJax
+https://github.com/trevorcampbell/shortex
+-->
+
+<!-- common sets and set operations -->
+\newcommand{\reals}{\mathbb{R}}
+\newcommand{\ints}{\mathbb{Z}}
+\newcommand{\rats}{\mathbb{Q}}
+\newcommand{\nats}{\mathbb{N}}
+\newcommand{\comps}{\mathbb{C}}
+
+<!-- text shortcuts -->
+\newcommand{\iid}{\textrm{i.i.d.}\@\xspace}
+\newcommand{\as}{\textrm{a.s.}\@\xspace}
+\newcommand{\aev}{\textrm{a.e.}\@\xspace}
+
+<!-- convergence -->
+\newcommand{\convas}{\overset{a.s.}{\to}}
+\newcommand{\convp}{\overset{p}{\to}}
+\newcommand{\convd}{\overset{d}{\to}}
+\newcommand{\eqd}{\overset{d}{=}}
+\newcommand{\eqas}{\overset{a.s.}{=}}
+
+<!-- unary functions -->
+\newcommand{\pr}{\mathbb{P}}  
+\newcommand{\ex}{\mathbb{E}}
+<!-- \newcommand{\Pr}{\mathbb{P}}   LaTeX Error: Command \Pr already defined. -->
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\law}{\mathcal{L}} 
+\newcommand{\var}{\operatorname{Var}}
+\newcommand{\cov}{\operatorname{Cov}}	
+\newcommand{\cor}{\operatorname{Corr}}
+\newcommand{\supp}{\operatorname{supp}} 
+
+<!-- Min and max -->
+\def\argmax{\operatorname{arg\,max}}
+\def\argmin{\operatorname{arg\,min}}
+\def\esssup{\operatorname{ess\,sup}}
+\def\essinf{\operatorname{ess\,inf}}
+
+
+<!-- binary operators -->
+\newcommand{\dist}{\sim}
+\newcommand{\distiid}{\overset{\text{iid}}{\dist}}
+\newcommand{\distind}{\overset{\text{ind}}{\dist}}
+
+<!-- independence -->
+\def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern4mu{#1#2}}}
+\newcommand\indep{\protect\mathpalette{\protect\independenT}{\perp}} 
+
+<!-- parametric distributions -->
+\newcommand{\distNamed}[1]{{\mathrm{#1}}}
+\newcommand{\distNorm}{\mathcal{N}}
+\newcommand{\distT}{\mathcal{T}}
+\newcommand{\distWish}{\mathcal{W}}
+\newcommand{\distInvWish}{\mathcal{IW}}
+\newcommand{\distLap}{\distNamed{Lap}}
+\newcommand{\distChiSq}{\chi^2}
+\newcommand{\distUnif}{\distNamed{Unif}}
+\newcommand{\distGam}{\distNamed{Gam}}
+\newcommand{\distGum}{\distNamed{Gumbel}}
+\newcommand{\distGEV}{\distNamed{GEV}}
+\newcommand{\distCat}{\distNamed{Categorical}}
+\newcommand{\distInvGam}{\distNamed{InvGam}}
+\newcommand{\distPoiss}{\distNamed{Poisson}}
+\newcommand{\distExp}{\distNamed{Exp}}
+\newcommand{\distNB}{\distNamed{NegBinom}}
+\newcommand{\distBeta}{\distNamed{Beta}}
+\newcommand{\distBetaPrime}{\distNamed{Beta}'}
+\newcommand{\distDir}{\distNamed{Dir}}
+\newcommand{\distBinom}{\distNamed{Binom}}
+\newcommand{\distMulti}{\distNamed{Multi}}
+\newcommand{\distBern}{\distNamed{Bern}}
+\newcommand{\distGeom}{\distNamed{Geom}}
+\newcommand{\distCauchy}{\distNamed{Cauchy}}
+\newcommand{\distVMF}{\distNamed{vMF}}
+\newcommand{\distDiscrete}{\distNamed{Discrete}}
+\newcommand{\distLKJ}{\distNamed{LKJ}}
+\newcommand{\distSkellam}{\distNamed{Skellam}}
+
+
+<!-- nonparametric distributions -->
+\newcommand{\distBeP}{\distNamed{BeP}}
+\newcommand{\distDP}{\distNamed{DP}}
+\newcommand{\distCRP}{\distNamed{CRP}}
+\newcommand{\distPYP}{\distNamed{PY}}
+\newcommand{\distGP}{{\distNamed{GP}}} 
+\newcommand{\distPP}{\distNamed{PP}}
+\newcommand{\distBP}{\distNamed{BP}}
+\newcommand{\distBPP}{\distNamed{BPP}}
+\newcommand{\distGamP}{\distNamed{\Gamma P}}
+\newcommand{\distNGamP}{\distNamed{N\Gamma P}}
+\newcommand{\distLP}{\distNamed{LP}}
+\newcommand{\distObs}{\distNamed{Obs}}
+\newcommand{\distCRM}{\distNamed{CRM}}
+\newcommand{\distNCRM}{\distNamed{NCRM}}
+
+<!-- calculus -->
+\newcommand{\dee}{\mathrm{d}}
+\newcommand{\der}[2]{\frac{\dee #1}{\dee #2}}
+
+<!-- general purpose math -->
+\newcommand{\ind}{\mathbb{1}}
+
+\newcommand{\ones}{\boldsymbol{1}}
+
+<!-- divergences -->
+\newcommand{\KL}{\operatorname{KL}}
+\newcommand{\TV}{\operatorname{TV}}
+\newcommand{\Wass}{\operatorname{W}}
+\newcommand{\Hell}{\operatorname{H}}
+\newcommand{\ELBO}{\operatorname{ELBO}}
+

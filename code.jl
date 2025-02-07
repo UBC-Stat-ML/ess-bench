@@ -1,6 +1,7 @@
 using Distributions
 using MCMCChains
 using DataFrames 
+using Random 
 
 struct TuringESS{K}
     args::K 
@@ -20,10 +21,10 @@ ess_estimators(ref) = [
     TuringESS((; kind = :basic)),
 ]
 
-function run_mh(proposal_sd, target, n_iterations) 
+function run_mh(proposal_sd, target, n_iterations, initialization) 
     target_logd(x) = logpdf(target, x)
     result = zeros(n_iterations) 
-    current_point = randn()
+    current_point = rand(initialization)
     for i in 1:n_iterations 
         proposed_point = current_point + proposal_sd * randn() 
         log_ratio = target_logd(proposed_point) - target_logd(current_point) 
@@ -31,6 +32,9 @@ function run_mh(proposal_sd, target, n_iterations)
             current_point = proposed_point 
         end 
         result[i] = current_point 
+        # if i % isqrt(n_iterations) == 0
+        #     current_point = rand(initialization)
+        # end
     end
     return result
 end
@@ -58,19 +62,22 @@ function compute_ess(samples, informed::BatchMeanESS)
 end
 
 function main(proposal_sd, n_repeats, n_iterations)
-    
-    df = DataFrame(seed = Int[], type = String[], moment = Int[], value = Float64[])
+    #Random.seed!(1)
+    df = DataFrame(seed = Int[], type = String[], moment = Int[], value = Float64[], initialization = String[])
     for seed in 1:n_repeats
-        samples = run_mh(proposal_sd, Normal(0, 1) , n_iterations)
-        for moment in [1, 2]
-            ref = moment == 1 ? Normal(0, 1) : Chisq(1)
-            for ess_type in ess_estimators(ref)
-                push!(df, (;
-                    seed, 
-                    moment,
-                    type = descr(ess_type), 
-                    value = compute_ess(samples .^ moment, ess_type)
-                ))
+        for init in [Normal(0, 0.1), Normal(0, 1), Normal(0, 5), Normal(5, 1)]
+            samples = run_mh(proposal_sd, Normal(0, 1) , n_iterations, init)
+            for moment in [2]
+                ref = moment == 1 ? Normal(0, 1) : Chisq(1)
+                for ess_type in ess_estimators(ref)
+                    push!(df, (;
+                        seed, 
+                        moment,
+                        initialization = string(init),
+                        type = descr(ess_type), 
+                        value = compute_ess(samples .^ moment, ess_type)
+                    ))
+                end
             end
         end
     end
@@ -78,4 +85,4 @@ function main(proposal_sd, n_repeats, n_iterations)
     return df
 end
 
-main(1.0, 1, 100000)
+#main(1.0, 1, 100000)

@@ -1,0 +1,94 @@
+---
+title: "Behaviour of informed ESS estimators"
+format: html
+author: Alexandre Bouchard-Côté
+date: February 4, 2025
+engine: knitr
+---
+
+{{< include _macros.qmd >}}
+
+
+
+## Introduction
+
+After reviewing the notion of an *informed ESS estimator* we 
+show some numerical experiments to assess the behaviour of informed 
+ESS estimators in a range of regimes including efficient as well 
+as very inefficient MCMC algorithms. 
+
+
+## Background
+
+Consider a setup where we are benchmarking an MCMC method. 
+To do so, we often pick a test function with known mean $\mu$ and variance $\sigma^2$ 
+under the target distribution $\pi$. 
+Here we review the construction of an *informed ESS estimator* based on these known parameters. 
+
+**Markov chain CLT:** Fix a Markov Kernel and a test function satisfying a central limit theorem for Markov chains, 
+which motivates approximations of the form:
+$$\sqrt{k} (\hat I_k - \mu) \approx \distNorm(0, \sigma^2_a),$$
+where $\hat I_k = \frac{1}{k} \sum_{i=1}^k g(X_i)$ and $\mu = \E[g(X)]$ for $X \sim \pi$, and $\sigma^2_a$ is the *asymptotic variance*, a constant that depends on $g$, $\pi$ and the mixing of the Markov chain.
+
+Now from the CLT for Markov chains it follows that if we have a Monte Carlo average $I_k$  based on 
+a MCMC chain of length $k$, then
+$$k \text{Var}(\hat I_k) \approx \sigma_a^2.$${#eq-mc-clt}
+
+**Independent MCMC chains:** Suppose first we had $a_n$ independent copies of MCMC (we will relax this shortly), each of length $b_n$. Let $\hat I^{(1)}, \dots, \hat I^{(a_n)}$ denote  $a_n$ independent estimators, the first one based on the first copy, second on second copy, etc. Since the $I^{(i)}$ are independent and identically distributed, 
+$$\text{Var}(I^{(1)}) \approx \frac{1}{a_n} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2.$${#eq-iid-var}
+
+Combining @eq-mc-clt and  @eq-iid-var, we obtain:
+$$\frac{b_n}{a_n} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2 \approx \sigma_a^2.$$
+
+**Batch mean trick:** view a trace of length $n$ as $a_n$ subsequent batches of length $b_n$. A popular choice is $a_n = b_n = \sqrt{n}$.
+
+**Effective sample size:** recall the effective sample size (ESS) is defined as $\ESS = \sigma^2_a / \sigma^2$. 
+This is the quantity we seek to estimate.
+
+Applying the batch mean trick with $a_n = b_n = \sqrt{n}$, we obtain:
+$$\ESS = \frac{\sigma^2_a}{\sigma^2} \approx \frac{1}{\sigma^2}  \frac{b_n}{a_n} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2 = \sum_{i = 1}^{\sqrt{n}} \left(\frac{I^{(i)} - \mu}{\sigma}\right)^2.$${#eq-informed-ess}
+
+The right hand side of this equation is the *informed ESS estimator.*
+
+
+## Numerical investigation
+
+We replicate and expand a numerical experiment reported by Trevor Campbell (personal communication, January 2025). 
+The setup is the following:
+
+- Target distribution is $\distNorm(0, 1)$ in all experiment.
+- We consider Metropolis-Hastings algorithms with normal proposals. We vary the proposal bandwidth (x-axis, log-scale). 
+- Facet rows: different initial distributions for the MCMC. 
+- Facet columns: different ESS estimators:
+    - *Batch mean ESS (informed)*: the estimator reviewed above. 
+    - *Batch mean ESS*: the same as @eq-informed-ess but where $\mu$ and $\sigma$ are replaced by the sample mean and standard deviation
+      (based on the full trace; this is equivalent to the classical batch mean ESS estimator). 
+    - *TuringESS basic and bulk*: ESS estimators based on truncated spectral estimation, default algorithms in the Turing.
+- For each initial distribution and proposal bandwidth, we ran 10 independent chains and estimate 10 ESS from each chain separately. 
+- Each chain contains the samples from 100,000 iteration. The solid black line denotes an idealized effective sample size of 100,000.
+- The test function used here is $g(x) = x^2$, so the reference distribution is a $\chi^2$ with one degree of freedom. The values 
+  of $\mu$ and $\sigma$ are computed from that distribution.
+
+![](deliverables/scriptName=main.nf/ess.png)
+
+**Observations:**
+
+- As bandwith goes to zero or infinity, we expect the effective sample size to go to zero. 
+- The only setup achieving this is the informed ESS with an initialization far from the target. 
+- However, for the other initial distributions considered, some of the informed ESS estimates are the worst observed, 
+  sometimes taking non-sense values higher than the number of MCMC samples, which is not possible 
+  in reversible chains. 
+  
+## Next steps
+
+- Maybe time to move away from batch mean methods
+    - Check this [page benchmarking various ESS estimators](https://avehtari.github.io/rhat_ess/ess_comparison.html). 
+          - They have a nice trick for detecting non-convergence due to multimodality. 
+      Covers both well mixing case and multi-chains detecting poor mixing. Batch means is not the winner. Geyer's method comes up better. 
+          - **Informed spectral methods might just work out of the box...**
+    - Pierre Jacob's handbook pointer highlights the slow convergence of batch mean methods (slower than MC). 
+- Might still be interesting to look into the variance bias square decomposition
+    - Optimal burn-in
+    - Detecting when ESS is meaningless. 
+    - Debunking some bad pages (use high dim normal initialized at zero). [1](http://users.stat.umn.edu/~geyer/mcmc/burn.html) [2](http://stronginference.com/burn-in-and-other-mcmc-folklore.html) [3](http://stronginference.com/)
+
