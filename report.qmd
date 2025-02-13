@@ -1,6 +1,6 @@
 ---
 title: "Behaviour of informed ESS estimators"
-format: html
+format: pdf
 author: Alexandre Bouchard-Côté
 date: February 4, 2025
 engine: knitr
@@ -65,7 +65,8 @@ The setup is the following:
       (based on the full trace; this is equivalent to the classical batch mean ESS estimator). 
     - *TuringESS basic and bulk*: ESS estimators based on truncated spectral estimation, default algorithms in the Turing.
 - For each initial distribution and proposal bandwidth, we ran 10 independent chains and estimate 10 ESS from each chain separately. 
-- Each chain contains the samples from 100,000 iteration. The solid black line denotes an idealized effective sample size of 100,000.
+- Each chain contains the samples from 100,000 iteration. 
+- The top solid black line denotes an idealized effective sample size of 100,000, the bottom solid black line denotes the square root of that.
 - The test function used here is $g(x) = x^2$, so the reference distribution is a $\chi^2$ with one degree of freedom. The values 
   of $\mu$ and $\sigma$ are computed from that distribution.
 
@@ -83,12 +84,18 @@ The setup is the following:
 
 - Maybe time to move away from batch mean methods
     - Check this [page benchmarking various ESS estimators](https://avehtari.github.io/rhat_ess/ess_comparison.html). 
-          - They have a nice trick for detecting non-convergence due to multimodality. 
-      Covers both well mixing case and multi-chains detecting poor mixing. Batch means is not the winner. Geyer's method comes up better. 
-          - **Informed spectral methods might just work out of the box...**
-    - Pierre Jacob's handbook pointer highlights the slow convergence of batch mean methods (slower than MC). 
+      - They have a nice benchmark for detecting non-convergence due to multimodality. Covers both well mixing case and multi-chains detecting poor mixing. Batch means is not the winner. Geyer's method comes up better. 
+    - Pierre Jacob's handbook highlights the slow convergence of batch mean methods (slower than MC). 
 - Might still be interesting to look into the variance bias square decomposition
     - Optimal burn-in
-    - Detecting when ESS is meaningless. 
-    - Debunking some bad pages (use high dim normal initialized at zero). [1](http://users.stat.umn.edu/~geyer/mcmc/burn.html) [2](http://stronginference.com/burn-in-and-other-mcmc-folklore.html) [3](http://stronginference.com/)
+    - Detecting when ESS estimation is meaningless. 
+    - Debunking some misinformation (use high dim normal initialized at zero). [1](http://users.stat.umn.edu/~geyer/mcmc/burn.html) [2](http://stronginference.com/burn-in-and-other-mcmc-folklore.html) [3](http://stronginference.com/)
 
+Update: started working on informed spectral, then realized it would probably not be able either to detect ESS values much 
+lower than $\sqrt{n}$ either. Added that lines to plot and indeed all methods seem to fail around there. So maybe a 
+pragmatic solution here is to just have a threshold at $\sqrt{n}$ and give NA for these. 
+
+**TODO:** discuss and package-up a square-root check in our nextflow scripts.
+
+- Still helpful to do jack-knife bias estimation 
+- Would be interesting to add a multimodal example?
