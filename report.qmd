@@ -57,7 +57,7 @@ We can also generalize this to the size of the batch given by $b_n = n^\theta$ f
 some parameter $\theta \in ((1+\delta/2)^{-1}, 1)$ where we assume $4+\delta$ moments 
 for the test function of interest [see @jones_fixed-width_2006, Remark 6]. For example, with $\theta = 1/3$, assume 8 moments; 
 for $\theta = 1/2$, 6 moments. This yields:
-$$\ESS \approx n^{1 - \theta} \left( \frac{1}{a_n} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2 \right)^{-1}.$$
+$$\ESS \approx a_n \left( \frac{1}{a_n} \sum_{i = 1}^{a_n} \left(\frac{I^{(i)} - \mu}{\sigma}\right)^2 \right)^{-1}.$$
 
 
 ## Numerical investigation
