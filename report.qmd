@@ -4,6 +4,7 @@ format: pdf
 author: Alexandre Bouchard-Côté
 date: February 4, 2025
 engine: knitr
+bibliography: refs.bib
 ---
 
 {{< include _macros.qmd >}}
@@ -49,6 +50,12 @@ Applying the batch mean trick with $a_n = b_n = \sqrt{n}$, we obtain:
 $$\ESS = \frac{\sigma^2_a}{\sigma^2} \approx \frac{1}{\sigma^2}  \frac{b_n}{a_n} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2 = \sum_{i = 1}^{\sqrt{n}} \left(\frac{I^{(i)} - \mu}{\sigma}\right)^2.$${#eq-informed-ess}
 
 The right hand side of this equation is the *informed ESS estimator.*
+
+We can also generalize this to the size of the batch given by $b_n = n^\theta$ for 
+some parameter $\theta \in ((1+\delta/2)^{-1}, 1)$ where we assume $4+\delta$ moments 
+for the test function of interest [see @jones_fixed-width_2006, Remark 6]. For example, with $\theta = 1/3$, assume 8 moments; 
+for $\theta = 1/2$, 6 moments. This yields:
+$$\ESS \approx n^{2\theta - 1} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2.$$
 
 
 ## Numerical investigation
@@ -99,3 +106,9 @@ pragmatic solution here is to just have a threshold at $\sqrt{n}$ and give NA fo
 
 - Still helpful to do jack-knife bias estimation 
 - Would be interesting to add a multimodal example?
+
+
+## References
+
+::: {#refs}
+:::
