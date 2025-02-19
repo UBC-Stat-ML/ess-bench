@@ -43,11 +43,13 @@ $$\frac{b_n}{a_n} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2 \approx \sigma_a^2.$$
 
 **Batch mean trick:** view a trace of length $n$ as $a_n$ subsequent batches of length $b_n$. A popular choice is $a_n = b_n = \sqrt{n}$.
 
-**Effective sample size:** recall the effective sample size (ESS) is defined as $\ESS = \sigma^2_a / \sigma^2$. 
+**Effective sample size:** recall the effective sample size (ESS) is defined as $\ESS = n (\sigma^2 / \sigma_a^2)$. 
 This is the quantity we seek to estimate.
 
 Applying the batch mean trick with $a_n = b_n = \sqrt{n}$, we obtain:
-$$\ESS = \frac{\sigma^2_a}{\sigma^2} \approx \frac{1}{\sigma^2}  \frac{b_n}{a_n} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2 = \sum_{i = 1}^{\sqrt{n}} \left(\frac{I^{(i)} - \mu}{\sigma}\right)^2.$${#eq-informed-ess}
+
+$$\ESS = n \frac{\sigma^2}{\sigma_a^2} \approx  n \left(\frac{1}{\sigma^2}  \frac{b_n}{a_n} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2 \right)^{-1} = \sqrt{n} \left( \frac{1}{\sqrt{n}} \sum_{i = 1}^{\sqrt{n}} \left(\frac{I^{(i)} - \mu}{\sigma}\right)^2\right)^{-1}.$${#eq-informed-ess}
+
 
 The right hand side of this equation is the *informed ESS estimator.*
 
@@ -55,7 +57,7 @@ We can also generalize this to the size of the batch given by $b_n = n^\theta$ f
 some parameter $\theta \in ((1+\delta/2)^{-1}, 1)$ where we assume $4+\delta$ moments 
 for the test function of interest [see @jones_fixed-width_2006, Remark 6]. For example, with $\theta = 1/3$, assume 8 moments; 
 for $\theta = 1/2$, 6 moments. This yields:
-$$\ESS \approx n^{2\theta - 1} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2.$$
+$$\ESS \approx n^{1 - \theta} \left( \frac{1}{a_n} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2 \right)^{-1}.$$
 
 
 ## Numerical investigation
