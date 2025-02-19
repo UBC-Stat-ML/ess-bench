@@ -15,10 +15,7 @@ workflow  {
     compiled_env = instantiate(julia_env) | precompile
     configs = crossProduct(variables)
     combined = run_julia(compiled_env, julia_script, configs) | combine_csvs
-    plot(compiled_env, combined)
-
-    // for each bandwidth, compute {ESS(mu, sigma), ESS} x {x, x^2}
-    // if problem also occurs with x^2, device an alternative, else, think
+    plot(compiled_env, combined, ['ess', 'time'])
 }
 
 process run_julia {
@@ -47,6 +44,7 @@ process plot {
     input:
         path julia_env 
         path combined_csvs_folder 
+        each output
 
     output:
         path combined_csvs_folder
@@ -64,12 +62,12 @@ process plot {
     df = CSV.read("$combined_csvs_folder/ess.csv", DataFrame)
     n_samples = df[1, :n_samples]
 
-    plt = data(df) * mapping(:bandwidth, :value, col = :type, color = :type, row = :initialization) * visual(Scatter, alpha=0.25) 
-    plt_hlines = mapping([n_samples, sqrt(n_samples)]) * visual(HLines) 
-    fg = draw(plt + plt_hlines; 
+    plt = data(df) * mapping(:bandwidth, :$output, col = :type, color = :family, row = :initialization) * visual(Scatter, alpha=0.25) 
+    
+    fg = draw(plt ${output == "ess" ? "+ mapping([n_samples, sqrt(n_samples)]) * visual(HLines)" : ""}; 
             axis = (; xscale = log2, yscale = log2),
-            figure = (; size = (2000, 1000))
+            figure = (; size = (2400, 1000))
         )
-    save("ess.png", fg, px_per_unit = 3)
+    save("${output}.png", fg, px_per_unit = 3)
     """
 }

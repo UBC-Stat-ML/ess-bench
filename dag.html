@@ -27,6 +27,7 @@ flowchart TB
     v5["julia_script"]
     v8["julia_env"]
     v9["toml"]
+    v13[" "]
     end
     v2([instantiate_process])
     v3([precompile])
@@ -36,17 +37,17 @@ flowchart TB
     v11([precompile])
     v12([combine_process])
     end
-    v13([plot])
+    v14([plot])
     subgraph " "
-    v14[" "]
-    v15["combined_csvs_folder"]
+    v15[" "]
+    v16["combined_csvs_folder"]
     end
     v7(( ))
     v0 --> v2
     v1 --> v2
     v2 --> v3
     v3 --> v6
-    v3 --> v13
+    v3 --> v14
     v4 --> v6
     v5 --> v6
     v6 --> v7
@@ -55,9 +56,10 @@ flowchart TB
     v10 --> v11
     v11 --> v12
     v7 --> v12
-    v12 --> v13
-    v13 --> v15
+    v12 --> v14
     v13 --> v14
+    v14 --> v16
+    v14 --> v15
 
 </pre>
 <script type="module">
