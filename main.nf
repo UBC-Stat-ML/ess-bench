@@ -65,10 +65,10 @@ process plot {
     n_samples = df[1, :n_samples]
 
     plt = data(df) * mapping(:bandwidth, :value, col = :type, color = :type, row = :initialization) * visual(Scatter, alpha=0.25) 
-    plt_hlines = mapping([n_samples, sqrt(n_samples)]) * visual(HLines) # + mapping([sqrt(n_samples)]) * visual(HLines)
+    plt_hlines = mapping([n_samples, sqrt(n_samples)]) * visual(HLines) 
     fg = draw(plt + plt_hlines; 
             axis = (; xscale = log2, yscale = log2),
-            figure = (; size = (1000, 1000))
+            figure = (; size = (2000, 1000))
         )
     save("ess.png", fg, px_per_unit = 3)
     """

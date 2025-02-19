@@ -10,13 +10,18 @@ descr(t::TuringESS) = "TuringESS$(t.args)"
 
 struct BatchMeanESS{T}
     target::T
+    rate::Float64 
 end
-descr(::BatchMeanESS{Nothing}) = "BatchMeanESS"
-descr(::BatchMeanESS) = "BatchMeanESS(informed)"
+descr(bm::BatchMeanESS{Nothing}) = "BatchMeanESS($(bm.rate))"
+descr(bm::BatchMeanESS) = "BatchMeanESS($(bm.rate), inform)"
 
 ess_estimators(ref) = [
-    BatchMeanESS(ref), 
-    BatchMeanESS(nothing),
+    BatchMeanESS(ref, 0.3), 
+    BatchMeanESS(nothing, 0.3),
+    BatchMeanESS(ref, 0.5), 
+    BatchMeanESS(nothing, 0.5),
+    BatchMeanESS(ref, 0.7), 
+    BatchMeanESS(nothing, 0.7),
     TuringESS((; kind = :bulk)),
     TuringESS((; kind = :basic)),
 ]
@@ -32,26 +37,17 @@ function run_mh(proposal_sd, target, n_iterations, initialization)
             current_point = proposed_point 
         end 
         result[i] = current_point 
-        # if i % isqrt(n_iterations) == 0
-        #     current_point = rand(initialization)
-        # end
     end
     return result
 end
 
-compute_ess(samples, t::TuringESS) = ess(samples; t.args...)
+compute_ess(samples, t::TuringESS) = ess(samples; maxlag = length(samples), t.args...)
 
-function compute_ess(samples, informed::BatchMeanESS)
-    target = informed.target
-    if target === nothing
-        posterior_mean = mean(samples) 
-        posterior_sd = std(samples)
-    else
-        posterior_mean = mean(target)
-        posterior_sd = std(target)
-    end
+function compute_ess(samples, bm::BatchMeanESS)
+    target = bm.target
+    posterior_mean, posterior_sd = isnothing(target) ? (mean(samples), std(samples)) : (mean(target), std(target))
     n_samples = length(samples)
-    n_blocks = 1 + isqrt(n_samples)
+    n_blocks = 1 + floor(Int, n_samples^(1.0 - bm.rate)) # isqrt(n_samples)
     blk_size = n_samples ÷ n_blocks # takes floor of division
     centered_batch_means = map(1:n_blocks) do b
         i_start = blk_size*(b-1) + 1
