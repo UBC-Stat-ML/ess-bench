@@ -41,7 +41,7 @@ function run_mh(proposal_sd, target, n_iterations, initialization)
     return result
 end
 
-compute_ess(samples, t::TuringESS) = ess(samples; maxlag = length(samples), t.args...)
+compute_ess(samples, t::TuringESS) = ess(samples; maxlag = length(samples), autocov_method = FFTAutocovMethod(), t.args...)
 
 function compute_ess(samples, bm::BatchMeanESS)
     target = bm.target
@@ -81,4 +81,4 @@ function main(proposal_sd, n_repeats, n_iterations)
     return df
 end
 
-#main(1.0, 1, 100000)
+# main(1.0, 1, 100000)
