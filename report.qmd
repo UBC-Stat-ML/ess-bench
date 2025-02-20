@@ -1,5 +1,5 @@
 ---
-title: "Behaviour of informed ESS estimators"
+title: "Benchmarking ESS estimators"
 format: pdf
 author: Alexandre Bouchard-Côté
 date: February 4, 2025
@@ -10,16 +10,119 @@ bibliography: refs.bib
 {{< include _macros.qmd >}}
 
 
+## Executive summary 
 
-## Introduction
+If you are using Julia, install the packages `FFTW` and `MCMCChains` and use the following to compute ESS. 
+Small changes in that chunk of code can lead to doom. 
 
-After reviewing the notion of an *informed ESS estimator* we 
-show some numerical experiments to assess the behaviour of informed 
-ESS estimators in a range of regimes including efficient as well 
-as very inefficient MCMC algorithms. 
+```
+using MCMCChains 
+
+ess(samples; autocov_method = FFTAutocovMethod(), maxlag = typemax(Int))
+```
+
+Under the hood, the above uses Geyer's truncated autocorrelation estimator [see @geyer_practical_1992, Section 3.3]. 
+However, the 
+two arguments `maxlag` and `autocov_method` are both critical. Without the first, 
+the estimator can severely overestimate ESS. Without the second, the method can 
+become extremely slow. In other words, default values for `MCMCChains`'s argument are 
+potentially dangerous. 
+
+In the following, we present some experiments supporting this. 
+At the same time we compare to several types of alternative estimators based 
+on batch means. We find that the specific variant of Geyer's method described above 
+outperforms all the types of batch mean methods. 
+Our findings align with the results from a distinct [set of experiments](https://avehtari.github.io/rhat_ess/ess_comparison.html) from 
+Vehtari, Gelman, Simpson, Carpenter and Bürkner. 
 
 
-## Background
+
+
+## Numerical results
+
+We replicate and expand a numerical experiment reported by Trevor Campbell (personal communication, January 2025). 
+The basic setup is the following:
+
+- The target distribution is $\distNorm(0, 1)$ in all experiment.
+- We consider Metropolis-Hastings algorithms with normal proposals. We vary the proposal bandwidth (x-axis, log-scale). 
+- Facet rows: different initial distributions for the MCMC. 
+- Facet columns: different ESS estimators:
+    - *Orange*: those based on Geyer's truncated autocorrelation estimator. 
+        - `maxlag`: either `MCMCChains`'s default (the hard-coded value of `250`), or `Inf` (for both, the actual truncation is the minimum of that and the first lag where the sum of two consecutive lags gives a negative estimate). 
+        - `fft`: whether the Fast Fourier Transform is used (only relevant for timing experiments). 
+    - *Blue*: those based on batch mean methods. 
+        - `inform`: if the estimator is informed by known moments (used in the context of MCMC benchmarking), otherwise, `uninf`. 
+        - `rate`: the rate $\theta$ described in @sec-background-informed.
+- For each initial distribution and proposal bandwidth, we ran 10 independent chains and estimate 10 ESS from each chain separately. 
+- Each chain contains the samples from 100,000 iteration. 
+- The top solid black line denotes an idealized effective sample size of 100,000, the bottom solid black line denotes the square root of that.
+- The test function used here is $g(x) = x^2$, so the reference distribution is a $\chi^2$ with one degree of freedom. The values 
+  of $\mu$ and $\sigma$ are computed from that distribution.
+
+![](deliverables/scriptName=main.nf/ess.png)
+
+As the bandwidth goes to zero or infinity, we expect the effective sample size to go to zero. 
+This setup allows us to detect that many ESS estimators severely over-estimate ESS in the regime of low sampler efficiency. 
+
+### Standard batch mean methods are limited by batch size
+
+The standard batch mean method used in many packages corresponds to the column `rate = 0.5, uninf`. The rate of 
+$0.5$ simply means that $\sqrt{n}$ batches each of size $\sqrt{n}$ are used. 
+
+We see from the results in this column that once the autocorrelations of lag $O(\sqrt{n})$ are significant, 
+the method breaks down. The break down point corresponds to the case where the method starts to  output an 
+ESS estimate of $O(\sqrt{n})$ (bottom vertical line). As a side result, packages based on batch mean should 
+output at the very minimum a warning message in such cases. 
+
+One work-around is to change the batch size, in particular a rate $\theta$ greater than $0.5$: less batches $a_n = n^{1-\theta}$, 
+each of larger size $b_n = n^\theta$. 
+This corresponds to the column `rate = 0.7, uninf`, but we see that this only pushes the problem to a different threshold. 
+Moreover as $\theta$ increases, the estimates get more noisy because much less batches are available. 
+
+
+### Informed batch mean methods are sensitive to initialization 
+
+We describe in the appendix an alternative to ESS that exploits the fact that in some 
+MCMC benchmarking contexts, we may know the true moments of the target. These correspond to the columns 
+with `inform`. However, we see that this is only effective for initial distributions far enough from the 
+stationary distribution in this example. Moreover, these methods are by design less general since 
+they required known moments. 
+
+
+### Default arguments for Geyer's method are problematic 
+
+We now turn to the truncated autocorrelation estimator of Geyer. 
+We start with the default arguments in MCMCChains, i.e., with `ess(samples)`. 
+Under the hood, this uses a hard coded maximum lag of 250. This is the 
+columns with `maxlag = default`. We see a similar pattern as uninformed batch mean, 
+where the estimator silently breaks down after a threshold and severely over-estimates ESS. 
+
+
+### Removing the max lag address the over-estimation issue
+
+A simple tweak, removing the max lag argument  completely 
+solves the issue. This corresponds to the columns with `maxlag = Inf`. 
+
+Why is this maximum lag used then? It turns out to be a computational issue, 
+described next. 
+
+
+### Computational issue of naive maxlag
+
+The default algorithm used in `MCMCChains` does not leverage the fast Fourier transform 
+(presumably, to keep dependencies light). As a result, the timings without FFT reflect the worst-case 
+compute complexity of $O(n^2)$.
+As expected, the computational issues arise in slow mixing chains (see columns with `fft = false`). 
+
+Thankfully, the problem is solved by the FFT $O(n \log n)$ running time: see 
+columns with `fft = true`. 
+
+
+![](deliverables/scriptName=main.nf/time.png)
+
+
+
+## Appendix: background on informed batch ESS estimators {#sec-background-informed}
 
 Consider a setup where we are benchmarking an MCMC method. 
 To do so, we often pick a test function with known mean $\mu$ and variance $\sigma^2$ 
@@ -58,56 +161,6 @@ some parameter $\theta \in ((1+\delta/2)^{-1}, 1)$ where we assume $4+\delta$ mo
 for the test function of interest [see @jones_fixed-width_2006, Remark 6]. For example, with $\theta = 1/3$, assume 8 moments; 
 for $\theta = 1/2$, 6 moments. This yields:
 $$\ESS \approx a_n \left( \frac{1}{a_n} \sum_{i = 1}^{a_n} \left(\frac{I^{(i)} - \mu}{\sigma}\right)^2 \right)^{-1}.$$
-
-
-## Numerical investigation
-
-We replicate and expand a numerical experiment reported by Trevor Campbell (personal communication, January 2025). 
-The setup is the following:
-
-- Target distribution is $\distNorm(0, 1)$ in all experiment.
-- We consider Metropolis-Hastings algorithms with normal proposals. We vary the proposal bandwidth (x-axis, log-scale). 
-- Facet rows: different initial distributions for the MCMC. 
-- Facet columns: different ESS estimators:
-    - *Batch mean ESS (informed)*: the estimator reviewed above. 
-    - *Batch mean ESS*: the same as @eq-informed-ess but where $\mu$ and $\sigma$ are replaced by the sample mean and standard deviation
-      (based on the full trace; this is equivalent to the classical batch mean ESS estimator). 
-    - *TuringESS basic and bulk*: ESS estimators based on truncated spectral estimation, default algorithms in the Turing.
-- For each initial distribution and proposal bandwidth, we ran 10 independent chains and estimate 10 ESS from each chain separately. 
-- Each chain contains the samples from 100,000 iteration. 
-- The top solid black line denotes an idealized effective sample size of 100,000, the bottom solid black line denotes the square root of that.
-- The test function used here is $g(x) = x^2$, so the reference distribution is a $\chi^2$ with one degree of freedom. The values 
-  of $\mu$ and $\sigma$ are computed from that distribution.
-
-![](deliverables/scriptName=main.nf/ess.png)
-
-**Observations:**
-
-- As bandwith goes to zero or infinity, we expect the effective sample size to go to zero. 
-- The only setup achieving this is the informed ESS with an initialization far from the target. 
-- However, for the other initial distributions considered, some of the informed ESS estimates are the worst observed, 
-  sometimes taking non-sense values higher than the number of MCMC samples, which is not possible 
-  in reversible chains. 
-  
-## Next steps
-
-- Maybe time to move away from batch mean methods
-    - Check this [page benchmarking various ESS estimators](https://avehtari.github.io/rhat_ess/ess_comparison.html). 
-      - They have a nice benchmark for detecting non-convergence due to multimodality. Covers both well mixing case and multi-chains detecting poor mixing. Batch means is not the winner. Geyer's method comes up better. 
-    - Pierre Jacob's handbook highlights the slow convergence of batch mean methods (slower than MC). 
-- Might still be interesting to look into the variance bias square decomposition
-    - Optimal burn-in
-    - Detecting when ESS estimation is meaningless. 
-    - Debunking some misinformation (use high dim normal initialized at zero). [1](http://users.stat.umn.edu/~geyer/mcmc/burn.html) [2](http://stronginference.com/burn-in-and-other-mcmc-folklore.html) [3](http://stronginference.com/)
-
-Update: started working on informed spectral, then realized it would probably not be able either to detect ESS values much 
-lower than $\sqrt{n}$ either. Added that lines to plot and indeed all methods seem to fail around there. So maybe a 
-pragmatic solution here is to just have a threshold at $\sqrt{n}$ and give NA for these. 
-
-**TODO:** discuss and package-up a square-root check in our nextflow scripts.
-
-- Still helpful to do jack-knife bias estimation 
-- Would be interesting to add a multimodal example?
 
 
 ## References
