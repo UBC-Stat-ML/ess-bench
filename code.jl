@@ -16,7 +16,7 @@ struct BatchMeanESS{T}
     rate::Float64 
 end
 descr(bm::BatchMeanESS{Nothing}) = "rate = $(bm.rate), uninf"
-descr(bm::BatchMeanESS) = "rate = $(bm.rate), inform)"
+descr(bm::BatchMeanESS) = "rate = $(bm.rate), inform"
 family(::BatchMeanESS) = "BatchMean"
 
 ess_estimators(ref) = [
