@@ -1,6 +1,6 @@
 ---
 title: "Benchmarking ESS estimators"
-format: pdf
+format: html
 author: Alexandre Bouchard-Côté
 date: February 4, 2025
 engine: knitr
@@ -20,6 +20,9 @@ using MCMCChains
 
 ess(samples; autocov_method = FFTAutocovMethod(), maxlag = typemax(Int))
 ```
+
+Alternatively, use [InferenceReport](https://github.com/Julia-Tempering/InferenceReport.jl) which 
+uses the above settings by default when generating reports. 
 
 Under the hood, the above uses Geyer's truncated autocorrelation estimator [see @geyer_practical_1992, Section 3.3]. 
 However, the 

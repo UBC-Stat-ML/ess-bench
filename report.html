@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.4.547">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Alexandre Bouchard-Côté">
+<meta name="dcterms.date" content="2025-02-04">
+
+<title>Benchmarking ESS estimators</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="report_files/libs/clipboard/clipboard.min.js"></script>
+<script src="report_files/libs/quarto-html/quarto.js"></script>
+<script src="report_files/libs/quarto-html/popper.min.js"></script>
+<script src="report_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="report_files/libs/quarto-html/anchor.min.js"></script>
+<link href="report_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="report_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="report_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="report_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="report_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Benchmarking ESS estimators</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Alexandre Bouchard-Côté </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">February 4, 2025</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- First, some macros specific to this document -->
+<!-- -->
+<!-- 
+Second, tiny-shortex for Quarto
+restricted to macros supported by MathJax
+https://github.com/trevorcampbell/shortex
+-->
+<!-- common sets and set operations -->
+<!-- text shortcuts -->
+<!-- convergence -->
+<!-- unary functions -->
+<!-- \newcommand{\Pr}{\mathbb{P}}   LaTeX Error: Command \Pr already defined. -->
+<!-- Min and max -->
+<!-- binary operators -->
+<!-- independence -->
+<!-- parametric distributions -->
+<!-- nonparametric distributions -->
+<!-- calculus -->
+<!-- general purpose math -->
+<!-- divergences -->
+<section id="executive-summary" class="level2">
+<h2 class="anchored" data-anchor-id="executive-summary">Executive summary</h2>
+<p>If you are using Julia, install the packages <code>FFTW</code> and <code>MCMCChains</code> and use the following to compute ESS. Small changes in that chunk of code can lead to doom.</p>
+<pre><code>using MCMCChains 
+
+ess(samples; autocov_method = FFTAutocovMethod(), maxlag = typemax(Int))</code></pre>
+<p>Alternatively, use <a href="https://github.com/Julia-Tempering/InferenceReport.jl">InferenceReport</a> which uses the above settings by default when generating reports.</p>
+<p>Under the hood, the above uses Geyer’s truncated autocorrelation estimator <span class="citation" data-cites="geyer_practical_1992">(see <a href="#ref-geyer_practical_1992" role="doc-biblioref">Geyer 1992, sec. 3.3</a>)</span>. However, the two arguments <code>maxlag</code> and <code>autocov_method</code> are both critical. Without the first, the estimator can severely overestimate ESS. Without the second, the method can become extremely slow. In other words, default values for <code>MCMCChains</code>’s argument are potentially dangerous.</p>
+<p>In the following, we present some experiments supporting this. At the same time we compare to several types of alternative estimators based on batch means. We find that the specific variant of Geyer’s method described above outperforms all the types of batch mean methods. Our findings align with the results from a distinct <a href="https://avehtari.github.io/rhat_ess/ess_comparison.html">set of experiments</a> from Vehtari, Gelman, Simpson, Carpenter and Bürkner.</p>
+</section>
+<section id="numerical-results" class="level2">
+<h2 class="anchored" data-anchor-id="numerical-results">Numerical results</h2>
+<p>We replicate and expand a numerical experiment reported by Trevor Campbell (personal communication, January 2025). The basic setup is the following:</p>
+<ul>
+<li>The target distribution is <span class="math inline">\(\mathcal{N}(0, 1)\)</span> in all experiment.</li>
+<li>We consider Metropolis-Hastings algorithms with normal proposals. We vary the proposal bandwidth (x-axis, log-scale).</li>
+<li>Facet rows: different initial distributions for the MCMC.</li>
+<li>Facet columns: different ESS estimators:
+<ul>
+<li><em>Orange</em>: those based on Geyer’s truncated autocorrelation estimator.
+<ul>
+<li><code>maxlag</code>: either <code>MCMCChains</code>’s default (the hard-coded value of <code>250</code>), or <code>Inf</code> (for both, the actual truncation is the minimum of that and the first lag where the sum of two consecutive lags gives a negative estimate).</li>
+<li><code>fft</code>: whether the Fast Fourier Transform is used (only relevant for timing experiments).</li>
+</ul></li>
+<li><em>Blue</em>: those based on batch mean methods.
+<ul>
+<li><code>inform</code>: if the estimator is informed by known moments (used in the context of MCMC benchmarking), otherwise, <code>uninf</code>.</li>
+<li><code>rate</code>: the rate <span class="math inline">\(\theta\)</span> described in <a href="#sec-background-informed" class="quarto-xref">Section&nbsp;3</a>.</li>
+</ul></li>
+</ul></li>
+<li>For each initial distribution and proposal bandwidth, we ran 10 independent chains and estimate 10 ESS from each chain separately.</li>
+<li>Each chain contains the samples from 100,000 iteration.</li>
+<li>The top solid black line denotes an idealized effective sample size of 100,000, the bottom solid black line denotes the square root of that.</li>
+<li>The test function used here is <span class="math inline">\(g(x) = x^2\)</span>, so the reference distribution is a <span class="math inline">\(\chi^2\)</span> with one degree of freedom. The values of <span class="math inline">\(\mu\)</span> and <span class="math inline">\(\sigma\)</span> are computed from that distribution.</li>
+</ul>
+<p><img src="deliverables/scriptName=main.nf/ess.png" class="img-fluid"></p>
+<p>As the bandwidth goes to zero or infinity, we expect the effective sample size to go to zero. This setup allows us to detect that many ESS estimators severely over-estimate ESS in the regime of low sampler efficiency.</p>
+<section id="standard-batch-mean-methods-are-limited-by-batch-size" class="level3">
+<h3 class="anchored" data-anchor-id="standard-batch-mean-methods-are-limited-by-batch-size">Standard batch mean methods are limited by batch size</h3>
+<p>The standard batch mean method used in many packages corresponds to the column <code>rate = 0.5, uninf</code>. The rate of <span class="math inline">\(0.5\)</span> simply means that <span class="math inline">\(\sqrt{n}\)</span> batches each of size <span class="math inline">\(\sqrt{n}\)</span> are used.</p>
+<p>We see from the results in this column that once the autocorrelations of lag <span class="math inline">\(O(\sqrt{n})\)</span> are significant, the method breaks down. The break down point corresponds to the case where the method starts to output an ESS estimate of <span class="math inline">\(O(\sqrt{n})\)</span> (bottom vertical line). As a side result, packages based on batch mean should output at the very minimum a warning message in such cases.</p>
+<p>One work-around is to change the batch size, in particular a rate <span class="math inline">\(\theta\)</span> greater than <span class="math inline">\(0.5\)</span>: less batches <span class="math inline">\(a_n = n^{1-\theta}\)</span>, each of larger size <span class="math inline">\(b_n = n^\theta\)</span>. This corresponds to the column <code>rate = 0.7, uninf</code>, but we see that this only pushes the problem to a different threshold. Moreover as <span class="math inline">\(\theta\)</span> increases, the estimates get more noisy because much less batches are available.</p>
+</section>
+<section id="informed-batch-mean-methods-are-sensitive-to-initialization" class="level3">
+<h3 class="anchored" data-anchor-id="informed-batch-mean-methods-are-sensitive-to-initialization">Informed batch mean methods are sensitive to initialization</h3>
+<p>We describe in the appendix an alternative to ESS that exploits the fact that in some MCMC benchmarking contexts, we may know the true moments of the target. These correspond to the columns with <code>inform</code>. However, we see that this is only effective for initial distributions far enough from the stationary distribution in this example. Moreover, these methods are by design less general since they required known moments.</p>
+</section>
+<section id="default-arguments-for-geyers-method-are-problematic" class="level3">
+<h3 class="anchored" data-anchor-id="default-arguments-for-geyers-method-are-problematic">Default arguments for Geyer’s method are problematic</h3>
+<p>We now turn to the truncated autocorrelation estimator of Geyer. We start with the default arguments in MCMCChains, i.e., with <code>ess(samples)</code>. Under the hood, this uses a hard coded maximum lag of 250. This is the columns with <code>maxlag = default</code>. We see a similar pattern as uninformed batch mean, where the estimator silently breaks down after a threshold and severely over-estimates ESS.</p>
+</section>
+<section id="removing-the-max-lag-address-the-over-estimation-issue" class="level3">
+<h3 class="anchored" data-anchor-id="removing-the-max-lag-address-the-over-estimation-issue">Removing the max lag address the over-estimation issue</h3>
+<p>A simple tweak, removing the max lag argument completely solves the issue. This corresponds to the columns with <code>maxlag = Inf</code>.</p>
+<p>Why is this maximum lag used then? It turns out to be a computational issue, described next.</p>
+</section>
+<section id="computational-issue-of-naive-maxlag" class="level3">
+<h3 class="anchored" data-anchor-id="computational-issue-of-naive-maxlag">Computational issue of naive maxlag</h3>
+<p>The default algorithm used in <code>MCMCChains</code> does not leverage the fast Fourier transform (presumably, to keep dependencies light). As a result, the timings without FFT reflect the worst-case compute complexity of <span class="math inline">\(O(n^2)\)</span>. As expected, the computational issues arise in slow mixing chains (see columns with <code>fft = false</code>).</p>
+<p>Thankfully, the problem is solved by the FFT <span class="math inline">\(O(n \log n)\)</span> running time: see columns with <code>fft = true</code>.</p>
+<p><img src="deliverables/scriptName=main.nf/time.png" class="img-fluid"></p>
+</section>
+</section>
+<section id="sec-background-informed" class="level2">
+<h2 class="anchored" data-anchor-id="sec-background-informed">Appendix: background on informed batch ESS estimators</h2>
+<p>Consider a setup where we are benchmarking an MCMC method. To do so, we often pick a test function with known mean <span class="math inline">\(\mu\)</span> and variance <span class="math inline">\(\sigma^2\)</span> under the target distribution <span class="math inline">\(\pi\)</span>. Here we review the construction of an <em>informed ESS estimator</em> based on these known parameters.</p>
+<p><strong>Markov chain CLT:</strong> Fix a Markov Kernel and a test function satisfying a central limit theorem for Markov chains, which motivates approximations of the form: <span class="math display">\[\sqrt{k} (\hat I_k - \mu) \approx \mathcal{N}(0, \sigma^2_a),\]</span> where <span class="math inline">\(\hat I_k = \frac{1}{k} \sum_{i=1}^k g(X_i)\)</span> and <span class="math inline">\(\mu = \mathbb{E}[g(X)]\)</span> for <span class="math inline">\(X \sim \pi\)</span>, and <span class="math inline">\(\sigma^2_a\)</span> is the <em>asymptotic variance</em>, a constant that depends on <span class="math inline">\(g\)</span>, <span class="math inline">\(\pi\)</span> and the mixing of the Markov chain.</p>
+<p>Now from the CLT for Markov chains it follows that if we have a Monte Carlo average <span class="math inline">\(I_k\)</span> based on a MCMC chain of length <span class="math inline">\(k\)</span>, then <span id="eq-mc-clt"><span class="math display">\[k \text{Var}(\hat I_k) \approx \sigma_a^2. \tag{1}\]</span></span></p>
+<p><strong>Independent MCMC chains:</strong> Suppose first we had <span class="math inline">\(a_n\)</span> independent copies of MCMC (we will relax this shortly), each of length <span class="math inline">\(b_n\)</span>. Let <span class="math inline">\(\hat I^{(1)}, \dots, \hat I^{(a_n)}\)</span> denote <span class="math inline">\(a_n\)</span> independent estimators, the first one based on the first copy, second on second copy, etc. Since the <span class="math inline">\(I^{(i)}\)</span> are independent and identically distributed, <span id="eq-iid-var"><span class="math display">\[\text{Var}(I^{(1)}) \approx \frac{1}{a_n} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2. \tag{2}\]</span></span></p>
+<p>Combining <a href="#eq-mc-clt" class="quarto-xref">Equation&nbsp;1</a> and <a href="#eq-iid-var" class="quarto-xref">Equation&nbsp;2</a>, we obtain: <span class="math display">\[\frac{b_n}{a_n} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2 \approx \sigma_a^2.\]</span></p>
+<p><strong>Batch mean trick:</strong> view a trace of length <span class="math inline">\(n\)</span> as <span class="math inline">\(a_n\)</span> subsequent batches of length <span class="math inline">\(b_n\)</span>. A popular choice is <span class="math inline">\(a_n = b_n = \sqrt{n}\)</span>.</p>
+<p><strong>Effective sample size:</strong> recall the effective sample size (ESS) is defined as <span class="math inline">\(\operatorname{ESS}= n (\sigma^2 / \sigma_a^2)\)</span>. This is the quantity we seek to estimate.</p>
+<p>Applying the batch mean trick with <span class="math inline">\(a_n = b_n = \sqrt{n}\)</span>, we obtain:</p>
+<p><span id="eq-informed-ess"><span class="math display">\[\operatorname{ESS}= n \frac{\sigma^2}{\sigma_a^2} \approx  n \left(\frac{1}{\sigma^2}  \frac{b_n}{a_n} \sum_{i = 1}^{a_n} (I^{(i)} - \mu)^2 \right)^{-1} = \sqrt{n} \left( \frac{1}{\sqrt{n}} \sum_{i = 1}^{\sqrt{n}} \left(\frac{I^{(i)} - \mu}{\sigma}\right)^2\right)^{-1}. \tag{3}\]</span></span></p>
+<p>The right hand side of this equation is the <em>informed ESS estimator.</em></p>
+<p>We can also generalize this to the size of the batch given by <span class="math inline">\(b_n = n^\theta\)</span> for some parameter <span class="math inline">\(\theta \in ((1+\delta/2)^{-1}, 1)\)</span> where we assume <span class="math inline">\(4+\delta\)</span> moments for the test function of interest <span class="citation" data-cites="jones_fixed-width_2006">(see <a href="#ref-jones_fixed-width_2006" role="doc-biblioref">Jones et al. 2006</a>, Remark 6)</span>. For example, with <span class="math inline">\(\theta = 1/3\)</span>, assume 8 moments; for <span class="math inline">\(\theta = 1/2\)</span>, 6 moments. This yields: <span class="math display">\[\operatorname{ESS}\approx a_n \left( \frac{1}{a_n} \sum_{i = 1}^{a_n} \left(\frac{I^{(i)} - \mu}{\sigma}\right)^2 \right)^{-1}.\]</span></p>
+</section>
+<section id="references" class="level2">
+<h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" role="list">
+<div id="ref-geyer_practical_1992" class="csl-entry" role="listitem">
+Geyer, Charles J. 1992. <span>“Practical <span>Markov</span> <span>Chain</span> <span>Monte</span> <span>Carlo</span>.”</span> <em>Statistical Science</em> 7 (4): 473–83. <a href="https://www.jstor.org/stable/2246094">https://www.jstor.org/stable/2246094</a>.
+</div>
+<div id="ref-jones_fixed-width_2006" class="csl-entry" role="listitem">
+Jones, Galin L, Murali Haran, Brian S Caffo, and Ronald Neath. 2006. <span>“Fixed-<span>Width</span> <span>Output</span> <span>Analysis</span> for <span>Markov</span> <span>Chain</span> <span>Monte</span> <span>Carlo</span>.”</span> <em>Journal of the American Statistical Association</em> 101 (476): 1537–47. <a href="https://doi.org/10.1198/016214506000000492">https://doi.org/10.1198/016214506000000492</a>.
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
